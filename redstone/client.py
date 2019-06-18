@@ -397,7 +397,7 @@ class KeyProtect(BaseClient):
 
         return resp.json().get('resources')[0]
 
-    def create(self, name, payload=None, raw_payload=None, root=False):
+    def create(self, name, payload=None, raw_payload=None, root=False, encryption=None, signedNonce=None, iv=None):
 
         data = {
             "metadata": {
@@ -417,6 +417,14 @@ class KeyProtect(BaseClient):
             data['resources'][0]['payload'] = raw_payload
         elif payload is not None:
             data['resources'][0]['payload'] = base64.b64encode(payload).decode('utf-8')
+
+        # TKEK related fields
+        if encryption is not None:
+            data['resources'][0]['encryptionAlgorithm'] = 'RSAES_OAEP_SHA_256'
+        if signedNonce is not None:
+            data['resources'][0]['signedNonce'] = signedNonce
+        if iv is not None:
+            data['resources'][0]['iv'] = iv
 
         resp = self.session.post(
             "%s/api/v2/keys" % self.endpoint_url,
@@ -460,6 +468,21 @@ class KeyProtect(BaseClient):
         resp = self._action(key_id, "unwrap", data)
         return base64.b64decode(resp['plaintext'].encode())
 
+    def createTKEK(self, expiration, maxAllowedRetrievals):
+        data = {'expiration': expiration,
+                'maxAllowedRetrievals': maxAllowedRetrievals}
+
+        resp = self.session.post("%s/api/v2/import_token" % self.endpoint_url,
+                                 json=data)
+
+        self._validate_resp(resp)
+        return
+
+    def getTKEK(self):
+        resp = self.session.get("%s/api/v2/import_token", self.endpoint_url)
+        self._validate_resp(resp)
+
+        return resp.json().get('resources')[0]
 
 class CISAuth(requests.auth.AuthBase):
 
