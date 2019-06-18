@@ -397,7 +397,7 @@ class KeyProtect(BaseClient):
 
         return resp.json().get('resources')[0]
 
-    def create(self, name, payload=None, raw_payload=None, root=False, encryption=None, signedNonce=None, iv=None):
+    def create(self, name, payload=None, raw_payload=None, root=False, signed_nonce=None, iv=None):
 
         data = {
             "metadata": {
@@ -419,12 +419,12 @@ class KeyProtect(BaseClient):
             data['resources'][0]['payload'] = base64.b64encode(payload).decode('utf-8')
 
         # TKEK related fields
-        if encryption is not None:
-            data['resources'][0]['encryptionAlgorithm'] = 'RSAES_OAEP_SHA_256'
-        if signedNonce is not None:
-            data['resources'][0]['signedNonce'] = signedNonce
-        if iv is not None:
+        if signed_nonce is not None and iv is not None:
+            data['resources'][0]['signedNonce'] = signed_nonce
             data['resources'][0]['iv'] = iv
+            data['resources'][0]['encryptionAlgorithm'] = 'RSAES_OAEP_SHA_256'
+        elif iv is not None and signed_nonce is None or iv is None and signed_nonce is not None:
+            ValueError("`signed_nonce` and `iv` both need to be specified for importing client encrypted payloads")
 
         resp = self.session.post(
             "%s/api/v2/keys" % self.endpoint_url,
@@ -468,9 +468,9 @@ class KeyProtect(BaseClient):
         resp = self._action(key_id, "unwrap", data)
         return base64.b64decode(resp['plaintext'].encode())
 
-    def createTKEK(self, expiration, maxAllowedRetrievals):
+    def create_import_token(self, expiration, max_retrievals):
         data = {'expiration': expiration,
-                'maxAllowedRetrievals': maxAllowedRetrievals}
+                'maxAllowedRetrievals': max_retrievals}
 
         resp = self.session.post("%s/api/v2/import_token" % self.endpoint_url,
                                  json=data)
@@ -478,7 +478,7 @@ class KeyProtect(BaseClient):
         self._validate_resp(resp)
         return
 
-    def getTKEK(self):
+    def get_import_token(self):
         resp = self.session.get("%s/api/v2/import_token", self.endpoint_url)
         self._validate_resp(resp)
 
