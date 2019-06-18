@@ -419,12 +419,13 @@ class KeyProtect(BaseClient):
             data['resources'][0]['payload'] = base64.b64encode(payload).decode('utf-8')
 
         # TKEK related fields
-        if signed_nonce is not None and iv is not None:
-            data['resources'][0]['signedNonce'] = signed_nonce
-            data['resources'][0]['iv'] = iv
-            data['resources'][0]['encryptionAlgorithm'] = 'RSAES_OAEP_SHA_256'
-        elif iv is not None and signed_nonce is None or iv is None and signed_nonce is not None:
-            ValueError("`signed_nonce` and `iv` both need to be specified for importing client encrypted payloads")
+        if any([signed_nonce, iv]):
+            if all([signed_nonce, iv]):
+                data['resources'][0]['signedNonce'] = signed_nonce
+                data['resources'][0]['iv'] = iv
+                data['resources'][0]['encryptionAlgorithm'] = 'RSAES_OAEP_SHA_256'
+        else:
+            ValueError("'signed_nonce' and 'iv' both need to be specified for importing client encrypted payloads")
 
         resp = self.session.post(
             "%s/api/v2/keys" % self.endpoint_url,
@@ -476,7 +477,7 @@ class KeyProtect(BaseClient):
                                  json=data)
 
         self._validate_resp(resp)
-        return
+        return resp.json()
 
     def get_import_token(self):
         resp = self.session.get("%s/api/v2/import_token", self.endpoint_url)
